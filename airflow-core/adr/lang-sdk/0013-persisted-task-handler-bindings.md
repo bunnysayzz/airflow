@@ -175,7 +175,7 @@ CREATE TABLE lang_sdk_task_handler (
     dag_bundle_name            VARCHAR(250)  NOT NULL,   -- the *Python* file that owns this row
     dag_relative_fileloc       VARCHAR(2000) NOT NULL,   -- ditto
     dag_relative_fileloc_hash  VARCHAR(32)   NOT NULL,   -- md5 of dag_relative_fileloc
-    handler_binding            VARCHAR(20)   NOT NULL,   -- positional | named | named_or_whole
+    handler_binding            VARCHAR(20)   NOT NULL,   -- positional | named | named_or_whole | named_open
     handler_params             JSON          NOT NULL,   -- list[TaskHandlerParam]; order matters only for positional binding
     CONSTRAINT lang_sdk_task_handler_pkey PRIMARY KEY (dag_id, task_id),
     CONSTRAINT lang_sdk_task_handler_dag_id_fkey FOREIGN KEY (dag_id)
@@ -261,7 +261,7 @@ class SDKTaskHandlerParsingResult(BaseModel):  # runtime -> parent, on ToManager
 
 class TaskHandlerDeclaration(BaseModel):
     task_id: str
-    binding: Literal["positional", "named", "named_or_whole"]  # how stub-task arguments bind to params
+    binding: Literal["positional", "named", "named_or_whole", "named_open"]  # how arguments bind to params
     params: list[TaskHandlerParam]  # ordered; the order matters only for "positional"
 
 
