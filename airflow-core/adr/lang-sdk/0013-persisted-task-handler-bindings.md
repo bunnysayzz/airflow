@@ -176,7 +176,7 @@ CREATE TABLE lang_sdk_task_handler (
     dag_relative_fileloc       VARCHAR(2000) NOT NULL,   -- ditto
     dag_relative_fileloc_hash  VARCHAR(32)   NOT NULL,   -- md5 of dag_relative_fileloc
     handler_binding            VARCHAR(20)   NOT NULL,   -- positional | named | named_or_whole
-    handler_params             JSON          NOT NULL,   -- list[TaskHandlerParam], ordered
+    handler_params             JSON          NOT NULL,   -- list[TaskHandlerParam]; order matters only for positional binding
     CONSTRAINT lang_sdk_task_handler_pkey PRIMARY KEY (dag_id, task_id),
     CONSTRAINT lang_sdk_task_handler_dag_id_fkey FOREIGN KEY (dag_id)
         REFERENCES dag (dag_id) ON DELETE CASCADE,
@@ -261,13 +261,15 @@ class SDKTaskHandlerParsingResult(BaseModel):  # runtime -> parent, on ToManager
 
 class TaskHandlerDeclaration(BaseModel):
     task_id: str
-    params: list[TaskHandlerParam]  # ordered; arg bindings are positional
+    binding: Literal["positional", "named", "named_or_whole"]  # how stub-task arguments bind to params
+    params: list[TaskHandlerParam]  # ordered; the order matters only for "positional"
 
 
 class TaskHandlerParam(BaseModel):
-    name: str
+    name: str | None  # None: the runtime has no name for this positional parameter
     value_schema: JSONSchema | None = None
     required: bool  # the handler declares no default
+    exact_name: bool = False  # match as spelled, not case-insensitively with underscores ignored
 ```
 
 A `dag_id` the artifact registers nothing for is **omitted** from `task_handlers` rather than returned
@@ -401,7 +403,8 @@ DagFileProcessorProcess(etl.py)                            [no DB — client con
         │
         ├─7─ VALIDATE per dag_id, unioned across coordinators
         │      task_id sets must match exactly
-        │      arg_bindings[*].name    ↔ handler_params[*].name, in order
+        │      arg_bindings[*]         ↔ handler_params[*], per the declaration's binding:
+        │                                 by position, or by folded or exact name
         │      arg_bindings[*].schema  ↔ handler_params[*].value_schema,
         │                                 compared only where neither is null
         │      two candidates claiming one (dag_id, task_id) → import error
